@@ -1,28 +1,29 @@
-FROM python:3.12-slim-bookworm
+# The official CUDA image keeps this container portable across supported NVIDIA
+# GPUs. Override VLLM_VERSION at build time when upgrading vLLM.
+ARG VLLM_VERSION=v0.25.1
+FROM vllm/vllm-openai:${VLLM_VERSION}
 
-ARG VLLM_VERSION=0.25.1
-RUN pip install --no-cache-dir \
-      "https://github.com/vllm-project/vllm/releases/download/v${VLLM_VERSION}/vllm-${VLLM_VERSION}+cpu-cp38-abi3-manylinux_2_34_x86_64.whl" \
-      --extra-index-url https://download.pytorch.org/whl/cpu
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      libtcmalloc-minimal4 libnuma1 g++ curl \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN printf '#!/bin/bash\n\
-TCMALLOC=$(find /usr/lib /usr/local/lib -name "libtcmalloc_minimal.so*" | head -1)\n\
-IOMP=$(find /usr/local/lib /usr/lib -name "libiomp5.so*" | head -1)\n\
-export LD_PRELOAD="$TCMALLOC${IOMP:+:$IOMP}"\n\
-exec "$@"\n' > /entrypoint.sh && chmod +x /entrypoint.sh
-
-ENV VLLM_CPU_KVCACHE_SPACE=2 \
-    HF_HOME=/root/.cache/huggingface
+ENV HF_HOME=/root/.cache/huggingface \
+    PYTHONUNBUFFERED=1
 
 EXPOSE 8000
 
-RUN pip install --no-cache-dir \
-      "trl>=0.16" datasets accelerate
+# Keep `vllm serve` as the stable interface. `docker run` arguments replace CMD,
+# so a larger model and H100-oriented settings can be supplied without rebuilding.
+ENTRYPOINT ["vllm", "serve"]
 
-ENTRYPOINT ["/entrypoint.sh"]
-CMD ["vllm", "serve", "Qwen/Qwen3-1.7B", "--dtype", "bfloat16", "--max-model-len", "2048", \
-     "--host", "0.0.0.0", "--port", "8000"]
+# Proof-of-concept defaults for an 8 GB CUDA GPU:
+# - Qwen3-0.6B is the smallest official Qwen3 dense model.
+# - FP16 weights work on Turing-class GPUs; Qwen's block-FP8 weights do not.
+# - FP8 KV cache leaves enough room for a single 40K-token sequence.
+# - Chunked prefill bounds peak memory while CUDA graphs remain enabled.
+CMD ["Qwen/Qwen3-0.6B", \
+     "--dtype", "half", \
+     "--max-model-len", "40960", \
+     "--kv-cache-dtype", "fp8_e5m2", \
+     "--gpu-memory-utilization", "0.90", \
+     "--max-num-seqs", "1", \
+     "--max-num-batched-tokens", "2048", \
+     "--enable-chunked-prefill", \
+     "--host", "0.0.0.0", \
+     "--port", "8000"]
