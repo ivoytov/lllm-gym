@@ -3,14 +3,14 @@ set -euo pipefail
 
 # LORA_ADAPTER_PATH must be the lora_adapter directory made by VERL's model merger.
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-MODEL_ID=${MODEL_ID:-Qwen/Qwen3.6-27B}
+MODEL_ID=${MODEL_ID:-${MODEL_DIR:-/dev/shm/gpt-oss-20b-bf16}}
 LORA_ADAPTER_PATH=${LORA_ADAPTER_PATH:?Set LORA_ADAPTER_PATH to the SFT lora_adapter directory}
 OUTPUT_DIR=${OUTPUT_DIR:-"$ROOT/checkpoints/grpo"}
 
-# The 27B FSDP actor occupies about 53 GiB on this 93 GiB H100. Leave
+# The dequantized 20B FSDP actor occupies roughly 45 GiB on this 93 GiB H100. Leave
 # headroom for it while the colocated vLLM rollout server owns its KV cache.
 python3 -m verl.trainer.main_ppo \
-  algorithm.adv_estimator=grpo \
+  algorithm.adv_estimator=dr_grpo \
   algorithm.use_kl_in_reward=false \
   data.train_files="$ROOT/data/grpo_train.parquet" \
   data.val_files="$ROOT/data/grpo_val.parquet" \
@@ -20,9 +20,10 @@ python3 -m verl.trainer.main_ppo \
   data.max_response_length=256 \
   data.filter_overlong_prompts=true \
   data.truncation=error \
+  +data.apply_chat_template_kwargs.reasoning_effort=medium \
   actor_rollout_ref.model.path="$MODEL_ID" \
   actor_rollout_ref.model.lora_adapter_path="$LORA_ADAPTER_PATH" \
-  +actor_rollout_ref.model.override_config._attn_implementation=sdpa \
+  +actor_rollout_ref.model.override_config.attn_implementation=eager \
   actor_rollout_ref.model.enable_gradient_checkpointing=true \
   actor_rollout_ref.model.use_remove_padding=true \
   actor_rollout_ref.actor.optim.lr=3e-5 \
@@ -34,14 +35,13 @@ python3 -m verl.trainer.main_ppo \
   actor_rollout_ref.actor.use_kl_loss=false \
   actor_rollout_ref.actor.entropy_coeff=0 \
   actor_rollout_ref.rollout.name=vllm \
-  actor_rollout_ref.rollout.dtype=float16 \
-  actor_rollout_ref.rollout.quantization=fp8 \
+  actor_rollout_ref.rollout.dtype=bfloat16 \
   actor_rollout_ref.rollout.n=2 \
   actor_rollout_ref.rollout.temperature=1.0 \
   actor_rollout_ref.rollout.top_p=1.0 \
   actor_rollout_ref.rollout.top_k=-1 \
   actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
-  actor_rollout_ref.rollout.gpu_memory_utilization=0.42 \
+  actor_rollout_ref.rollout.gpu_memory_utilization=0.7 \
   actor_rollout_ref.rollout.max_model_len=768 \
   actor_rollout_ref.rollout.max_num_seqs=4 \
   actor_rollout_ref.rollout.load_format=safetensors \

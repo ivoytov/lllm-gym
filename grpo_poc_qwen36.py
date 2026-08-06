@@ -1,4 +1,4 @@
-"""B200 launcher for Qwen3.6-27B with thinking retained in completions."""
+"""B200 launcher for openai/gpt-oss-20b with thinking retained in completions."""
 
 import argparse
 import os
@@ -8,7 +8,7 @@ os.environ["GRPO_POC_BETA"] = "0.0"
 
 import grpo_poc
 
-grpo_poc.MODEL_ID = "Qwen/Qwen3.6-27B"
+grpo_poc.MODEL_ID = "openai/gpt-oss-20b"
 grpo_poc.SFT_OUTPUT_DIR = "./qwen36_structured_output_sft"
 grpo_poc.GRPO_OUTPUT_DIR = "./qwen36_structured_output_grpo"
 

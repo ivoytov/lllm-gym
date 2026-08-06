@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Run from this directory after installing VERL.  One B200 GPU, LoRA only.
+# Run from this directory after installing VERL. One H100 GPU, LoRA only.
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-MODEL_ID=${MODEL_ID:-Qwen/Qwen3.6-27B}
+MODEL_ID=${MODEL_ID:-${MODEL_DIR:-/dev/shm/gpt-oss-20b-bf16}}
 OUTPUT_DIR=${OUTPUT_DIR:-"$ROOT/checkpoints/sft"}
 
 torchrun --standalone --nproc_per_node=1 -m verl.trainer.sft_trainer \
@@ -16,11 +16,12 @@ torchrun --standalone --nproc_per_node=1 -m verl.trainer.sft_trainer \
   data.max_token_len_per_gpu=2048 \
   data.use_dynamic_bsz=true \
   data.ignore_input_ids_mismatch=true \
+  +data.apply_chat_template_kwargs.reasoning_effort=medium \
   model.path="$MODEL_ID" \
   model.lora_rank=32 \
   model.lora_alpha=64 \
   model.target_modules=all-linear \
-  +model.override_config._attn_implementation=sdpa \
+  +model.override_config.attn_implementation=eager \
   model.enable_gradient_checkpointing=true \
   model.use_remove_padding=true \
   engine.model_dtype=bfloat16 \

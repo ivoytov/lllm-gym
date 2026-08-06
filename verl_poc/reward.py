@@ -7,10 +7,21 @@ import math
 
 
 def final_answer(text: str) -> str:
-    """Score only text after Qwen's final closing thinking tag."""
+    """Extract the final answer from Harmony, XML-thinking, or plain output."""
     if "<think>" in text:
         _, closing_tag, answer = text.rpartition("</think>")
         return answer.strip() if closing_tag else ""
+
+    # GPT-OSS/vLLM normally returns Harmony channels such as:
+    # <|channel|>analysis<|message|>...<|end|>
+    # <|start|>assistant<|channel|>final<|message|>{...}<|return|>
+    final_marker = "<|channel|>final<|message|>"
+    if final_marker in text:
+        answer = text.rsplit(final_marker, 1)[1]
+        for stop in ("<|return|>", "<|end|>"):
+            answer = answer.split(stop, 1)[0]
+        return answer.strip()
+
     return text.strip()
 
 

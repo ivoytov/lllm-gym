@@ -22,8 +22,9 @@ Return JSON only, with exactly this structure:
 
 def json_answer(prediction: float) -> str:
     payload = json.dumps({"revenue": {"prediction": prediction}}, separators=(",", ":"))
-    # Retain Qwen's thinking mode while teaching that only the suffix is the answer.
-    return f"<think>\nI should return exactly the requested JSON schema.\n</think>\n{payload}"
+    # GPT-OSS gets its reasoning/final channels from the Harmony chat template.
+    # Keep the supervised assistant content as the final JSON payload itself.
+    return payload
 
 
 def make_sft_rows() -> list[dict]:

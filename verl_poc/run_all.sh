@@ -2,8 +2,9 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-python3 "$ROOT/patch_verl_qwen36.py"
-python3 "$ROOT/prepare_data.py"
+PYTHON_BIN=${PYTHON_BIN:-python3}
+"$PYTHON_BIN" "$ROOT/prepare_model.py"
+"$PYTHON_BIN" "$ROOT/prepare_data.py"
 bash "$ROOT/run_sft.sh"
 
 SFT_STEP=$(find "$ROOT/checkpoints/sft" -type d -name 'global_step_*' | sort -V | tail -n 1)
