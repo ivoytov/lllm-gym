@@ -5,6 +5,7 @@ __pycache__
 .pytest_cache
 .env
 .venv
+.cache
 *.egg-info
 dist
 build

@@ -1,0 +1,28 @@
+services:
+  vllm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: lab-vllm:0.25.1
+    container_name: lab-vllm
+    env_file:
+      - .env
+    restart: unless-stopped
+    init: true
+    gpus: all
+    shm_size: 8gb
+    stop_grace_period: 150s
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - huggingface-cache:/root/.cache/huggingface
+      - vllm-cache:/root/.cache/vllm
+    logging:
+      driver: local
+      options:
+        max-size: 50m
+        max-file: "5"
+
+volumes:
+  huggingface-cache:
+  vllm-cache:
